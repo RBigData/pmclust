@@ -87,17 +87,30 @@ m.step.spmd <- function(PARAM){
            sqrt(.pmclustEnv$Z.spmd[, i.k] / .pmclustEnv$Z.colSums[i.k])
       tmp.SIGMA <- crossprod(B)
       tmp.SIGMA <- spmd.allreduce.double(tmp.SIGMA, double(p.2), op = "sum") 
-      dim(tmp.SIGMA) <- c(p, p)
 
-      tmp.U <- decompsigma(tmp.SIGMA)
-      PARAM$U.check[[i.k]] <- tmp.U$check
-      if(tmp.U$check){
-        PARAM$U[[i.k]] <- tmp.U$value
-        PARAM$SIGMA[[i.k]] <- tmp.SIGMA
+      if(!any(is.nan(tmp.SIGMA))){
+        dim(tmp.SIGMA) <- c(p, p)
+
+        tmp.U <- decompsigma(tmp.SIGMA)
+        PARAM$U.check[[i.k]] <- tmp.U$check
+        if(tmp.U$check){
+          PARAM$U[[i.k]] <- tmp.U$value
+          PARAM$SIGMA[[i.k]] <- tmp.SIGMA
+        }
+      } else{
+        PARAM$U.check[[i.k]] <- FALSE
+        if(.pmclustEnv$CONTROL$debug > 2){
+          comm.cat("  SIGMA[[", i.k, "]] has NaN. Updating is skipped.\n", sep = "", quiet = TRUE)
+        }
+
+        .pmclustEnv$FAIL.i.k <- i.k    # i.k is failed to update.
+        if(.pmclustEnv$CONTROL$stop.at.fail){
+          stop(paste("NaN occurs at i.k=", i.k, sep = ""))
+        }
       }
     } else{
       if(.pmclustEnv$CONTROL$debug > 2){
-        comm.cat("  SIGMA[[", i.k, "]] is fixed.\n", sep = "", quiet = TRUE)
+        comm.cat("  SIGMA[[", i.k, "]] is fixed. Updating is skipped.\n", sep = "", quiet = TRUE)
       }
     }
   }
@@ -167,8 +180,12 @@ em.step.spmd <- function(PARAM.org){
       time.start <- proc.time()
     }
 
+    ### This is used to record which i.k may be failed to update.
+    .pmclustEnv$FAIL.i.k <- 0
+
+    ### Start EM here.
     PARAM.new <- try(em.onestep.spmd(PARAM.org))
-    if(comm.any(class(PARAM.new) == "try-error")){
+    if(class(PARAM.new) == "try-error" || is.nan(PARAM.new$logL)){
       comm.cat("Results of previous iterations are returned.\n", quiet = TRUE)
       .pmclustEnv$CHECK$convergence <- 99
       PARAM.new <- PARAM.org

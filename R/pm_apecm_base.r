@@ -133,8 +133,12 @@ apecm.step.spmd <- function(PARAM.org){
       time.start <- proc.time()
     }
 
+    ### This is used to record which i.k may be failed to update.
+    .pmclustEnv$FAIL.i.k <- 0
+
+    ### Start APECM here.
     PARAM.new <- try(apecm.onestep.spmd(PARAM.org))
-    if(comm.any(class(PARAM.new) == "try-error")){
+    if(class(PARAM.new) == "try-error" || is.nan(PARAM.new$logL)){
       comm.cat("Results of previous iterations are returned.\n", quiet = TRUE)
       .pmclustEnv$CHECK$convergence <- 99
       PARAM.new <- PARAM.org
