@@ -41,8 +41,7 @@ balance.info <- function(X.spmd, comm = .pbd_env$SPMD.CT$comm,
     rank.org <- rep(0:(COMM.SIZE - 1), N.allspmd)
     rank.belong <- rep(0:(COMM.SIZE - 1), new.N.allspmd) 
   } else if(method[1] == "block0"){
-    ### Try block0 method which is a better way to balance data. However,
-    ### this is not necessary in block-cyclic, so useless for ddmatrix.
+    ### Try block0 method which is a better way to balance data.
     n <- floor(N / COMM.SIZE)
     n.residual <- N %% COMM.SIZE
     new.N.allspmd <- rep(n, COMM.SIZE) +
@@ -111,7 +110,8 @@ load.balance <- function(X.spmd, bal.info = NULL, comm = .pbd_env$SPMD.CT$comm,
         if(i != COMM.RANK){
           total.row <- sum(bal.info$recv$org == i)
           tmp <- spmd.recv.double(double(total.row * p),
-                                  rank.source = i, tag = i, comm = comm)
+                                  rank.source = i, tag = i, comm = comm,
+                                  check.type = FALSE)
           dim(tmp) <- c(total.row, p)
         } else{
           tmp <- matrix(X.spmd[bal.info$send$belong == i,], ncol = p)
@@ -123,7 +123,8 @@ load.balance <- function(X.spmd, bal.info = NULL, comm = .pbd_env$SPMD.CT$comm,
         if(i != COMM.RANK){
           total.column <- sum(bal.info$recv$org == i)
           tmp <- spmd.recv.double(double(total.column * p),
-                                  rank.source = i, tag = i, comm = comm)
+                                  rank.source = i, tag = i, comm = comm,
+                                  check.type = FALSE)
           dim(tmp) <- c(p, total.column)
         } else{
           tmp <- matrix(X.spmd[, bal.info$send$belong == i], nrow = p)
